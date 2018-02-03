@@ -66,7 +66,7 @@ def single_byte_xor_cipher_cracker(hex_str):
     >>> int(x[0]), x[1], x[2]
     (85, "Cooking MC's like a pound of bacon", '58')
     '''
-    chi_2_results = [[0]]
+    chi_2_results = []
     target_len = len(hex_str) / 2
     for i in xrange(256):
         test_key = '%x' % i
@@ -74,8 +74,8 @@ def single_byte_xor_cipher_cracker(hex_str):
         observed_freqs = compute_character_frequency(test_crack_str)
         chi_2_res = chi_2(observed_freqs, target_len)
         if chi_2_res:
-            chi_2_results.append((chi_2_res, test_crack_str, test_key),)
-    return sorted(chi_2_results, key=operator.itemgetter(0), reverse=True)[0]
+            chi_2_results.append((chi_2_res, test_crack_str, '0' + test_key if len(test_key) == 1 else test_key),)
+    return sorted(chi_2_results, key=operator.itemgetter(0), reverse=True)[0] if chi_2_results else None
 
 if __name__ == "__main__":
     import doctest

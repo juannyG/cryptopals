@@ -11,7 +11,7 @@ def single_character_xor_cipher_searcher():
     with open('ch4.in', 'r') as data_f:
         for line in data_f.read().split('\n'):
             result = single_byte_xor_cipher_cracker(line)
-            if highest_chi_2[0] < result[0]:
+            if result and highest_chi_2[0] < result[0]:
                 highest_chi_2 = result
     return highest_chi_2
 
