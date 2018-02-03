@@ -3,8 +3,9 @@ from ch3 import single_byte_xor_cipher_cracker
 def single_character_xor_cipher_searcher():
     """In a given file, find the line that was single byte XOR'd
 
-    >>> single_character_xor_cipher_searcher()
-    (95.86009764624164, 'Now that the party is jumping\\n')
+    >>> x = single_character_xor_cipher_searcher()
+    >>> int(x[0]), x[1], x[2]
+    (93, 'Now that the party is jumping\\n', '35')
     """
     highest_chi_2 = (0, None)
     with open('ch4.in', 'r') as data_f:
