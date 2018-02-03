@@ -1,4 +1,5 @@
 import base64
+import collections
 
 from operator import itemgetter
 
@@ -11,6 +12,8 @@ def hamming_distance(str1, str2):
 
     >>> hamming_distance('this is a test', 'wokka wokka!!!')
     37
+    >>> hamming_distance("001506".decode('hex'), "130e07".decode("hex"))
+    8
     """
     result = int(xor(str1.encode('hex'), str2.encode('hex')), 16)
     distance = 0
@@ -19,21 +22,22 @@ def hamming_distance(str1, str2):
         result >>= 1
     return int(distance)
 
-def guess_keysize(ciphertext_str):
-    '''For a given cipher, return a guess of the keysize
+def generate_potential_keysizes(ciphertext_str):
+    '''Return a list of the most likely keysizes for a given
+    ciphertext whose length N >= 160. The integer result of
+    the normalized hamming distances provides the grouping of
+    keysize candidates.
 
-    >>> guess_keysize("a" * 160)
-    10
+    >>> keysize_space = [i for i in xrange(2, 41)]
+    >>> assert generate_potential_keysizes("a" * 160) == keysize_space
     '''
-    guesses = ()
+    guesses = collections.defaultdict(list)
     for keysize in xrange(2, 41):
-        guess = hamming_distance(ciphertext_str[0:keysize], ciphertext_str[keysize:keysize*2])
-        guesses += ((keysize, guess / keysize),)
-        #guess1 = hamming_distance(ciphertext_str[0:keysize], ciphertext_str[keysize:keysize*2]) / keysize
-        #guess2 = hamming_distance(ciphertext_str[keysize*2:keysize*3], ciphertext_str[keysize*3:keysize*4]) / keysize
-        #guesses += ((keysize, (guess1 + guess2) / 2),)
-    print sorted(guesses, key=itemgetter(1))
-    return sorted(guesses, key=itemgetter(1))[0][0]
+        dist1 = hamming_distance(ciphertext_str[0:keysize], ciphertext_str[keysize:keysize*2])
+        dist2 = hamming_distance(ciphertext_str[keysize*2:keysize*3], ciphertext_str[keysize*3:keysize*4])
+        avg_dist = (dist1 + dist2) / (2 * keysize)
+        guesses[int(avg_dist)].append(keysize)
+    return sorted(guesses.items(), key=itemgetter(0))[0][1]
 
 def transpose_blocks(ciphertext_str, keysize):
     """Group index i of blocks into a new block, for all 0 <= i < keysize
@@ -53,26 +57,44 @@ def transpose_blocks(ciphertext_str, keysize):
         ) for j in xrange(keysize)
     ]
 
-def ch6():
-    """Challenge 6
+def find_repeating_key(ciphertext_str, potential_keysizes):
+    """Find the repeating key by transposing the blocks of length keysize and
+    solving the single byte key solution of the transposition.
 
-    >>> ch6()
+    >>> find_repeating_key('abcdefghijk', [2,4])
+    '\\x04\\x07'
     """
+    for possible_keysize in potential_keysizes:
+        keysize = possible_keysize
+        single_char_cracks = []
+        transposed_blocks = transpose_blocks(ciphertext_str, keysize)
+        for tb in transposed_blocks:
+            single_char_cracks.append(single_byte_xor_cipher_cracker(tb.encode('hex')))
+
+        if all(single_char_cracks):
+            return keysize, ''.join(single_char_cracks[i][2].decode('hex') for i in xrange(keysize))
+    return None, None
+
+def ch6():
     ciphertext_str = ''
     with open('ch6.in', 'r') as data_f:
         ciphertext_str = base64.b64decode(data_f.read().replace('\n', ''))
 
-    keysize = guess_keysize(ciphertext_str)
-    keysize = 29
-    transposed_blocks = transpose_blocks(ciphertext_str, keysize)
-    z = []
-    for tb in transposed_blocks:
-        z.append(single_byte_xor_cipher_cracker(tb.encode('hex')))
-    repeating_key = ''.join(z[i][2].decode('hex') for i in xrange(keysize))
-    print repeating_key
-    print repeating_key_xor(ciphertext_str, repeating_key).decode('hex')
+    keysize = None
+    potential_keysizes = generate_potential_keysizes(ciphertext_str)
+    keysize, repeating_key = find_repeating_key(ciphertext_str, potential_keysizes)
+
+    if keysize and repeating_key:
+        print "(keysize, repeating_key) = ({}, {})".format(keysize, repeating_key)
+        return repeating_key_xor(ciphertext_str, repeating_key).decode('hex')
 
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
+    import sys
+    if '--solve' in sys.argv:
+        solution = ch6()
+        if '--verbose' in sys.argv:
+            print solution
+    elif '--test' in sys.argv:
+        doctest.testmod()
